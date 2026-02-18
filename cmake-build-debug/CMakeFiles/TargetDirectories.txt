@@ -1,0 +1,3 @@
+/Users/adamvoda/skola/projekty/cdn-dns/cmake-build-debug/CMakeFiles/cdn_dns.dir
+/Users/adamvoda/skola/projekty/cdn-dns/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/adamvoda/skola/projekty/cdn-dns/cmake-build-debug/CMakeFiles/rebuild_cache.dir
