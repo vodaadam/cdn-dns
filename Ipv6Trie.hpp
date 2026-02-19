@@ -26,6 +26,12 @@ public:
         this->trie = insertToTrie(ipv6, static_cast<uint8_t>(pop), this->trie, 0);
     }
 
+    /**
+     * Routes an ECS subnet using Longest Prefix Match
+     * @param ecs ECS subnet
+     * @return (pop, scopePrefixLen)
+     * @throws std::invalid_argument If no route exists
+     */
     std::pair<uint8_t, int> find(const IPv6Net &ecs) const {
         std::optional<std::pair<uint8_t, int> > value = findInTrie(ecs, trie, 0);
 
@@ -35,14 +41,13 @@ public:
         return value.value();
     }
 
-
 private:
 
     /**
-     * Finds bit's value
-     * @param addrBytes address represented in bytes
-     * @param bitIndex bitIndex in ipv6 address
-     * @return bit value 0 or 1
+     * Reads one bit from an IPv6 address
+     * @param addrBytes IPv6 address bytes
+     * @param bitIndex Bit index
+     * @return Bit value (0 or 1)
      * */
     static int bitValueAt(const std::vector<uint8_t> &addrBytes, const int bitIndex) {
         const uint8_t byte = addrBytes[bitIndex / 8];
@@ -51,48 +56,60 @@ private:
     }
 
     /**
-     * Inserts IPv6 prefix (address + prefixLen) into hex trie.
-     *
-     * @param ipv6 IPv6 prefix (network address in bytes + prefix length in bits)
-     * @param pop  PoP ID assigned to this prefix
-     * @param node current trie node
-     * @param hexIndex index of current hex digit (nibble) being processed
-     * @return std::share_ptr<Node> trie with inserted value
+     * Inserts a prefix into the bit trie up to prefixLen
+     * @param prefix Routing prefix to insert
+     * @param pop PoP id for this prefix
+     * @param node Current node
+     * @param bitIndex Current bit depth
+     * @return Updated node pointer
+     * @throws std::invalid_argument If the prefix already exists
      * */
-    std::shared_ptr<Node> insertToTrie(const IPv6Net &ipv6, uint8_t pop, std::shared_ptr<Node> &oldNode, int bitIndex) {
-        auto node = oldNode ? std::make_shared<Node>(*oldNode) : std::make_shared<Node>();
+    std::shared_ptr<Node> insertToTrie(const IPv6Net &ecs, uint8_t pop, std::shared_ptr<Node> &node, int bitIndex) {
+        if (!node) node = std::make_shared<Node>();
 
-        int ipLenBit = ipv6.getPrefixLen();
+        int ipLenBit = ecs.getPrefixLen();
 
         if (bitIndex == ipLenBit) {
             if (node->hasValue)
-                throw std::invalid_argument("Ipv6 " + ipv6.toString() + "already exists in IPv6Trie.");
+                throw std::invalid_argument("Ipv6 " + ecs.toString() + "already exists in IPv6Trie.");
             node->hasValue = true;
             node->value = pop;
             return node;
         }
 
-        int idx = bitValueAt(ipv6.getIp(), bitIndex);
-
+        int idx = bitValueAt(ecs.getIp(), bitIndex);
         auto &child = node->children[idx];
-        node->children[idx] = insertToTrie(ipv6, pop, child, bitIndex + 1);
+        node->children[idx] = insertToTrie(ecs, pop, child, bitIndex + 1);
         return node;
     }
 
+    /**
+     * Performs LPM lookup for ECS
+     * @param ecs ECS subnet
+     * @param node Current node
+     * @param bitIndex Current bit depth
+     * @return (pop, matchedLen) or nullopt
+     * */
     std::optional<std::pair<uint8_t, int>>
-    findInTrie(const IPv6Net &ipv6, const std::shared_ptr<Node> &node, int bitIndex) const {
-        if (!node ||
-            bitIndex > ipv6.getPrefixLen())
+    findInTrie(const IPv6Net &ecs, const std::shared_ptr<Node> &node, int bitIndex) const {
+        if (!node)
             return std::nullopt;
 
-        auto idx = bitValueAt(ipv6.getIp(), bitIndex);
-        auto child = node->children[idx];
-
         std::optional<std::pair<uint8_t, int>> value = std::nullopt;
+
         if (node->hasValue)
             value = std::make_pair(node->value, bitIndex);
 
-        auto newValue = findInTrie(ipv6, child, bitIndex + 1);
+        if (bitIndex == ecs.getPrefixLen())
+            return value;
+
+        auto idx = bitValueAt(ecs.getIp(), bitIndex);
+        auto child = node->children[idx];
+
+        if (node->hasValue)
+            value = std::make_pair(node->value, bitIndex);
+
+        auto newValue = findInTrie(ecs, child, bitIndex + 1);
         if (newValue.has_value())
             value = newValue;
 

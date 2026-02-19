@@ -5,22 +5,37 @@
 #include <stdexcept>
 #include <cstring>
 
-#include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-
 class IPv6Net {
 public:
-    IPv6Net(const std::string &addrBytes, uint8_t prefixLen) {
+    /**
+     * Creates an IPv6 prefix (address + prefix length)
+     * @param ipStr IPv6 address string without "/"
+     * @param prefixLen Prefix length in bits
+     */
+    IPv6Net(const std::string &ipStr, uint8_t prefixLen) {
         setPrefixLen(prefixLen);
-        setIp(addrBytes);
+        setIp(ipStr);
     }
 
+    /**
+     * Returns the IPv6 address as 16 bytes
+     * @return Address bytes
+     */
     const std::vector<uint8_t> &getIp() const { return addrBytes; }
 
-    const uint8_t &getPrefixLen() const { return prefixLen; }
+    /**
+     * Returns prefix length in bits
+     * @return Prefix length
+     */
+    const uint8_t getPrefixLen() const { return prefixLen; }
 
+    /**
+     * Formats as "addr/prefixLen"
+     * @return String representation
+     */
     std::string toString() const {
         in6_addr addr{};
         if (addrBytes.size() == 16) {
@@ -34,24 +49,36 @@ public:
 
 private:
     std::vector<uint8_t> addrBytes;
-    uint8_t prefixLen;
+    uint8_t prefixLen{0};
 
+    /**
+     * Parses IPv6 address string into bytes
+     * @param ipStr IPv6 address without "/"
+     * @throws std::invalid_argument If ipStr is invalid or contains '/'
+     */
     void setIp(const std::string &ipStr) {
         if (ipStr.find('/') != std::string::npos) {
             throw std::invalid_argument("IP must not contain '/'. Prefix length is provided separately.");
         }
 
         in6_addr addr{};
-        if (inet_pton(AF_INET6, ipStr.c_str(), &addr) != 1)
+        if (inet_pton(AF_INET6, ipStr.c_str(), &addr) != 1) {
             throw std::invalid_argument("Invalid IPv6 address format.");
+        }
 
         addrBytes.resize(16);
-        std::memcpy(this->addrBytes.data(), addr.s6_addr, 16);
+        std::memcpy(addrBytes.data(), addr.s6_addr, 16);
     }
 
+    /**
+     * Validates prefix length
+     * @param newPrefixLen Prefix length
+     * @throws std::out_of_range If newPrefixLen > 128
+     */
     void setPrefixLen(uint8_t newPrefixLen) {
-        if (newPrefixLen > 128)
-            throw std::out_of_range("Prefix must be less than 128.");
-        this->prefixLen = newPrefixLen;
+        if (newPrefixLen > 128) {
+            throw std::out_of_range("Prefix must be <= 128.");
+        }
+        prefixLen = newPrefixLen;
     }
 };
