@@ -15,7 +15,7 @@ struct Node {
     std::shared_ptr<Node> children[2];
 };
 
-class IPv6Trie { ;
+class IPv6Trie {
 public:
     IPv6Trie() = default;
 
@@ -32,7 +32,7 @@ public:
      * @return (pop, scopePrefixLen)
      * @throws std::invalid_argument If no route exists
      */
-    std::pair<uint8_t, int> find(const IPv6Net &ecs) const {
+    std::pair<uint8_t, int> find(const IPv6Net &ecs) {
         std::optional<std::pair<uint8_t, int> > value = findInTrie(ecs, trie, 0);
 
         if (!value.has_value())

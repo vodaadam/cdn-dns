@@ -30,7 +30,7 @@ public:
      * Returns prefix length in bits
      * @return Prefix length
      */
-    const uint8_t getPrefixLen() const { return prefixLen; }
+    uint8_t getPrefixLen() const { return prefixLen; }
 
     /**
      * Formats as "addr/prefixLen"
